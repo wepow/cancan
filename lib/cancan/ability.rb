@@ -122,7 +122,7 @@ module CanCan
     #   end
     #
     def can(action = nil, subject = nil, conditions = nil, &block)
-      rules << Rule.new(true, action, subject, conditions, block)
+      add_rule(Rule.new(true, action, subject, conditions, block))
     end
 
     # Defines an ability which cannot be done. Accepts the same arguments as "can".
@@ -138,7 +138,7 @@ module CanCan
     #   end
     #
     def cannot(action = nil, subject = nil, conditions = nil, &block)
-      rules << Rule.new(false, action, subject, conditions, block)
+      add_rule(Rule.new(false, action, subject, conditions, block))
     end
 
     # Alias one or more actions into another one.
@@ -236,7 +236,7 @@ module CanCan
 
     def merge(ability)
       ability.send(:rules).each do |rule|
-        rules << rule.dup
+        add_rule(rule.dup)
       end
       self
     end
@@ -271,16 +271,41 @@ module CanCan
       results
     end
 
+    def add_rule(rule)
+      @rules ||= Hash.new { |h, k| h[k] = [] }
+      @rules[:all] << rule if rule.subjects.compact.empty?
+      rule.subjects.each do |subject|
+        @rules[subject] << rule
+      end
+    end
+
+    def alternative_subjects(subject)
+      subject = subject.class unless subject.is_a?(Module)
+      descendants = []
+      [:all, *subject.ancestors, *descendants, subject.class.to_s]
+    end
+
     def rules
-      @rules ||= []
+      @rules.values.flatten
     end
 
     # Returns an array of Rule instances which match the action and subject
     # This does not take into consideration any hash conditions or block statements
     def relevant_rules(action, subject)
-      rules.reverse.select do |rule|
+      return [] unless @rules
+      relevant = possible_relevant_rules(subject).select do |rule|
         rule.expanded_actions = expand_actions(rule.actions)
         rule.relevant? action, subject
+      end
+      relevant.reverse!.uniq!
+      relevant
+    end
+
+    def possible_relevant_rules(subject)
+      if subject.is_a?(Hash)
+        rules
+      else
+        @rules.values_at(subject, *alternative_subjects(subject)).flatten
       end
     end
 
