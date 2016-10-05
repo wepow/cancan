@@ -256,9 +256,20 @@ module CanCan
     # This should be called before "matches?" and other checking methods since they
     # rely on the actions to be expanded.
     def expand_actions(actions)
-      actions.map do |action|
-        aliased_actions[action] ? [action, *expand_actions(aliased_actions[action])] : action
-      end.flatten
+      expanded_actions[actions] ||= begin
+        expanded = []
+        actions.each do |action|
+          expanded << action
+          if aliases = aliased_actions[action]
+            expanded += expand_actions(aliases)
+          end
+        end
+        expanded
+      end
+    end
+
+    def expanded_actions
+      @expanded_actions ||= {}
     end
 
     # Given an action, it will try to find all of the actions which are aliased to it.
