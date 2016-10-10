@@ -297,6 +297,7 @@ module CanCan
     end
 
     def rules
+      @rules ||= Hash.new { |h, k| h[k] = [] }
       @rules.values.flatten
     end
 
@@ -316,6 +317,7 @@ module CanCan
       if subject.is_a?(Hash)
         rules
       else
+        @rules ||= Hash.new { |h, k| h[k] = [] }
         @rules.values_at(subject, *alternative_subjects(subject)).flatten
       end
     end
